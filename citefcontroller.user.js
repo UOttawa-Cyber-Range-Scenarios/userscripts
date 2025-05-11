@@ -12,37 +12,38 @@
 // Note: We cannot rely on IDs as they change on successive page changes
 // (e.g mat-input-0 can become mat-input-2 after accessing other pages)
 
+const routeHandlers = {
+  '/login': handlerLogin,
+  '/password-reset': handlerPasswordReset
+};
+
 async function CITEFController() {
   await new Promise(resolve => setTimeout(resolve, 1000)); // wait util js gets executed
 
-  const path = window.location.pathname
-  console.warn(`CITEFController: Starting on ${path}`)
+  const route = window.location.pathname;
+  console.warn(`CITEFController: Starting on ${route}`);
 
-  switch(path) {
-    case '/login':
-      await pageLogin();
-      break;
-    case '/password-reset':
-      await pagePasswordReset();
-      break;
-    default:
-      console.warn(`CITEFController: No function defined for ${path}`)
+  const handler = routeHandlers[route];
+  if (handler) {
+    await handler();
+  } else {
+    console.warn(`CITEFController: No function defined for ${route}`);
   }
 }
 
-async function pageLogin() {
-  const username = document.getElementsByClassName("mat-input-element")[0]
-  const password = document.getElementsByClassName("mat-input-element")[1]
-  const submitButton = document.getElementsByClassName("submit-button")[0]
+async function handlerLogin() {
+  const username = document.getElementsByClassName("mat-input-element")[0];
+  const password = document.getElementsByClassName("mat-input-element")[1];
+  const submitButton = document.getElementsByClassName("submit-button")[0];
 
   if(username.value == "" || password.value == "") {
-    console.warn("CITEFController: Missing username / password")
-    return
+    console.warn("CITEFController-handlerLogin: Missing username / password");
+    return;
   }
-  submitButton.click()
+  submitButton.click();
 }
 
-async function pagePasswordReset() {
+async function handlerPasswordReset() {
   location.href = '/scenario';
 }
 
@@ -61,5 +62,5 @@ async function pagePasswordReset() {
 })(window.history);
 
 // Trigger CITEFController on first page load
-window.onload = CITEFController
+window.onload = CITEFController;
 
