@@ -4,7 +4,7 @@
 // @match       https://citefplus.griseo.ca/*
 // @match       http://10.20.1.11:8080/*
 // @grant       none
-// @version     1.1
+// @version     1.2
 // @author      Julien Cassagne
 // @description 2025-05-10, 10:28:14 p.m.
 // @downloadURL https://raw.githubusercontent.com/UOttawa-Cyber-Range-Scenarios/userscripts/refs/heads/main/citefcontroller.user.js
@@ -17,7 +17,8 @@ const routeHandlers = {
   'login': handlerLogin,
   'password-reset': handlerRedirectScenario,
   'home': handlerRedirectScenario,
-  'scenario-vnc': handlerScenarioVnc
+  'scenario-vnc': handlerScenarioVnc,
+  'scenario': handlerScenario,
 };
 
 async function CITEFController() {
@@ -39,7 +40,7 @@ async function handlerLogin() {
   const password = document.getElementsByClassName("mat-input-element")[1];
   const submitButton = document.getElementsByClassName("submit-button")[0];
 
-  if(username.value == "" || password.value == "") {
+  if (username.value == "" || password.value == "") {
     console.warn("CITEFController-handlerLogin: Missing username / password");
     return;
   }
@@ -50,13 +51,89 @@ async function handlerRedirectScenario() {
   location.href = '/scenario';
 }
 
-async function handlerScenarioVnc() {
-  const fullscreen = document.getElementsByClassName("vnc-console-mat-icon-button")[0];
-  fullscreen.click()
+async function handlerScenario() {
+  try {
+    const created = await fetch("/api/scenario/page/0/20/DESC/created", {
+      headers: {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
+      },
+
+      body: "{\"filter\":\"\"}",
+      method: "POST",
+      mode: "cors",
+      // credentials: "include"
+    });
+    const created_json = await created.json();
+    const scenariodata = created_json.content.find(item => item.status === "INSTANTIATION")
+    let scenarioId = scenariodata.id;
+    localStorage.setItem("scenarioId", scenarioId);
+    const nodeInstancesResponse = await fetch(`/api/scenario_template/nodes_instances/${scenarioId}`, {
+      method: "GET",
+      headers: {
+        "accept": "application/json",
+      },
+      credentials: "include"
+    });
+    const nodeInstances = await nodeInstancesResponse.json();
+    let nodeInstanceId = Object.keys(nodeInstances).map(key => Object.keys(nodeInstances[key])[0])[0];
+    localStorage.setItem("nodeInstanceId", nodeInstanceId);
+    if (!nodeInstanceId) {
+      console.warn("No node instance ID found");
+      return;
+    }
+    const targetUrl = `/scenario-vnc/${scenarioId}/${nodeInstanceId}`;
+    window.location.href = targetUrl;
+    console.log("Found node instance ID:", nodeInstanceId);
+  }
+
+  // Construct the final URL and redirect
+
+
+  catch (error) {
+    console.error("Error in handlerScenario:", error);
+  }
 }
 
+async function handlerScenarioVnc() {
+  let scenarioId = localStorage.getItem("scenarioId");
+  let nodeInstanceId = localStorage.getItem("nodeInstanceId");
+  try {
+    const button = document.getElementsByClassName("vnc-console-mat-icon-button")[0];
+    button.click();
+    console.log("Button clicked successfully!");
+  }
+  catch (error) {
+    console.error("Error in handlerScenario_vnc:", error);
+  }
+
+  setInterval(async () => {
+    const scenarioStatusResponse = await fetch("/api/scenario/instantiation_statuses", {
+      headers: {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
+      },
+
+      body: JSON.stringify([scenarioId]),
+      method: "POST",
+      mode: "cors",
+      credentials: "include"
+    });
+
+    const scenarioStatuses = await scenarioStatusResponse.json();
+    if (!scenarioStatuses) {
+      console.warn("No running scenario found");
+      return;
+    }
+    if (scenarioStatuses[0].status != "INSTANTIATION") {
+      location.href = '/scenario';
+    }
+  }, 30000)
 
 
+}
 // Trigger CITEFController on each URL change
 (function (history) {
   let pushState = history.pushState;
@@ -70,4 +147,3 @@ async function handlerScenarioVnc() {
 
 // Trigger CITEFController on first page load
 window.onload = CITEFController;
-
