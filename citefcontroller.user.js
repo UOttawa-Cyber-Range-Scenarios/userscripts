@@ -4,7 +4,7 @@
 // @match       https://citefplus.griseo.ca/*
 // @match       http://10.20.1.11:8080/*
 // @grant       none
-// @version     1.4
+// @version     1.5
 // @author      Julien Cassagne
 // @description 2025-05-10, 10:28:14 p.m.
 // @downloadURL https://raw.githubusercontent.com/UOttawa-Cyber-Range-Scenarios/userscripts/refs/heads/main/citefcontroller.user.js
@@ -109,7 +109,6 @@ async function handlerScenarioVnc() {
     const button = document.getElementsByClassName("vnc-console-mat-icon-button")[0];
     if (button)
       button.click();
-    console.log("Button clicked successfully!");
   }
   catch (error) {
     console.error("Error in handlerScenario_vnc:", error);
@@ -135,9 +134,13 @@ async function handlerScenarioVnc() {
     if (scenarioStatuses[0].status != "INSTANTIATION") {
       location.href = '/scenario';
     }
+    const statusText = document.getElementsByClassName("font-size-16");
+    if (statusText.length > 0 && statusText[0].innerText == "Disconnected") {
+      const connectbutton = document.getElementsByClassName("mat-raised-button")[0];
+      if (connectbutton)
+        connectbutton.click();
+    }
   }, 30000)
-
-
 }
 // Trigger CITEFController on each URL change
 (function (history) {
