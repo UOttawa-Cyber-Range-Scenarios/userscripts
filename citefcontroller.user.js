@@ -4,7 +4,7 @@
 // @match       https://citefplus.griseo.ca/*
 // @match       http://10.20.1.11:8080/*
 // @grant       none
-// @version     1.2
+// @version     1.3
 // @author      Julien Cassagne
 // @description 2025-05-10, 10:28:14 p.m.
 // @downloadURL https://raw.githubusercontent.com/UOttawa-Cyber-Range-Scenarios/userscripts/refs/heads/main/citefcontroller.user.js
@@ -52,48 +52,57 @@ async function handlerRedirectScenario() {
 }
 
 async function handlerScenario() {
-  try {
-    const created = await fetch("/api/scenario/page/0/20/DESC/created", {
-      headers: {
-        "accept": "application/json",
-        "content-type": "application/json",
-        "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
-      },
+  const checkScenario = async () => {
+    try {
+      const created = await fetch("/api/scenario/page/0/20/DESC/created", {
+        headers: {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
+        },
 
-      body: "{\"filter\":\"\"}",
-      method: "POST",
-      mode: "cors",
-      // credentials: "include"
-    });
-    const created_json = await created.json();
-    const scenariodata = created_json.content.find(item => item.status === "INSTANTIATION")
-    let scenarioId = scenariodata.id;
-    localStorage.setItem("scenarioId", scenarioId);
-    const nodeInstancesResponse = await fetch(`/api/scenario_template/nodes_instances/${scenarioId}`, {
-      method: "GET",
-      headers: {
-        "accept": "application/json",
-      },
-      credentials: "include"
-    });
-    const nodeInstances = await nodeInstancesResponse.json();
-    let nodeInstanceId = Object.keys(nodeInstances).map(key => Object.keys(nodeInstances[key])[0])[0];
-    localStorage.setItem("nodeInstanceId", nodeInstanceId);
-    if (!nodeInstanceId) {
-      console.warn("No node instance ID found");
-      return;
+        body: "{\"filter\":\"\"}",
+        method: "POST",
+        mode: "cors",
+        // credentials: "include"
+      });
+
+      const created_json = await created.json();
+      const scenariodata = created_json.content.find(item => item.status === "INSTANTIATION")
+      if (!scenariodata){ // no scenario instintiated
+        return
+      }
+      let scenarioId = scenariodata.id;
+      localStorage.setItem("scenarioId", scenarioId);
+      const nodeInstancesResponse = await fetch(`/api/scenario_template/nodes_instances/${scenarioId}`, {
+        method: "GET",
+        headers: {
+          "accept": "application/json",
+        },
+        credentials: "include"
+      });
+      const nodeInstances = await nodeInstancesResponse.json();
+      let nodeInstanceId = Object.keys(nodeInstances).map(key => Object.keys(nodeInstances[key])[0])[0];
+      localStorage.setItem("nodeInstanceId", nodeInstanceId);
+      if (!nodeInstanceId) {
+        console.warn("No node instance ID found");
+        return;
+      }
+      const targetUrl = `/scenario-vnc/${scenarioId}/${nodeInstanceId}`;
+      window.location.href = targetUrl;
+      console.log("Found node instance ID:", nodeInstanceId);
     }
-    const targetUrl = `/scenario-vnc/${scenarioId}/${nodeInstanceId}`;
-    window.location.href = targetUrl;
-    console.log("Found node instance ID:", nodeInstanceId);
+
+    // Construct the final URL and redirect
+
+
+    catch (error) {
+      console.error("Error in handlerScenario:", error);
+    }
   }
 
-  // Construct the final URL and redirect
-
-
-  catch (error) {
-    console.error("Error in handlerScenario:", error);
-  }
+  setInterval(checkScenario, 30000)
+  await checkScenario();
 }
 
 async function handlerScenarioVnc() {
