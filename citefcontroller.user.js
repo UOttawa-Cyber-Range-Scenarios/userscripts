@@ -63,8 +63,6 @@ async function handlerScenario() {
 
         body: "{\"filter\":\"\"}",
         method: "POST",
-        mode: "cors",
-        // credentials: "include"
       });
 
       const created_json = await created.json();
@@ -76,10 +74,6 @@ async function handlerScenario() {
       localStorage.setItem("scenarioId", scenarioId);
       const nodeInstancesResponse = await fetch(`/api/scenario_template/nodes_instances/${scenarioId}`, {
         method: "GET",
-        headers: {
-          "accept": "application/json",
-        },
-        credentials: "include"
       });
       const nodeInstances = await nodeInstancesResponse.json();
       let nodeInstanceId = Object.keys(nodeInstances).map(key => Object.keys(nodeInstances[key])[0])[0];
@@ -88,16 +82,8 @@ async function handlerScenario() {
         console.warn("No node instance ID found");
         return;
       }
-      const state = await fetch(`https://citefplus.griseo.ca/api/exercise/state/${scenarioId}`, {
-
-        headers: {
-          "accept": "application/json",
-          "content-type": "application/json",
-          "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
-        },
+      const state = await fetch(`/api/exercise/state/${scenarioId}`, {
         method: "GET",
-        mode: "cors",
-        // credentials: "include"
       });
       const exerciseState = await state.json();
       if (exerciseState.exerciseState === "NOT_RUNNING") {
@@ -139,8 +125,6 @@ async function handlerScenarioVnc() {
 
       body: JSON.stringify([scenarioId]),
       method: "POST",
-      mode: "cors",
-      credentials: "include"
     });
 
     const scenarioStatuses = await scenarioStatusResponse.json();
