@@ -4,15 +4,12 @@
 // @match       https://citefplus.griseo.ca/*
 // @match       http://10.20.1.11:8080/*
 // @grant       none
-// @version     1.5
-// @author      Julien Cassagne
-// @description 2025-05-10, 10:28:14 p.m.
-// @require     file:///Users/sarrasassi/Documents/userscripts/citefcontroller.user.js
+// @version     1.6
+// @author      Julien Cassagne, Sarra Sassi  
+// @description Automate CITEF interface on CR iMacs 
+// @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
 // @downloadURL https://raw.githubusercontent.com/UOttawa-Cyber-Range-Scenarios/userscripts/refs/heads/main/citefcontroller.user.js
 // ==/UserScript==
-
-// Note: We cannot rely on IDs as they change on successive page changes
-// (e.g mat-input-0 can become mat-input-2 after accessing other pages)
 
 const routeHandlers = {
   'login': handlerLogin,
@@ -36,37 +33,6 @@ async function CITEFController() {
   }
 }
 
-async function checkState (scenarioId) {
-   const state = await fetch(`/api/exercise/state/${scenarioId}`, {
-        method: "GET",
-      });
-      let exerciseState = await state.json();
-      if (exerciseState.exerciseState === "NOT_RUNNING") {
-        return
-      }
-      return exerciseState.exerciseState;
-}
-
-async function checkScenarioInstantiation (scenarioId) {
-  const scenarioStatusResponse = await fetch("/api/scenario/instantiation_statuses", {
-      headers: {
-        "accept": "application/json",
-        "content-type": "application/json",
-        "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
-      },
-
-      body: JSON.stringify([scenarioId]),
-      method: "POST",
-    });
-
-    const scenarioStatuses = await scenarioStatusResponse.json();
-    if (!scenarioStatuses) {
-      console.warn("No running scenario found");
-      return;
-    }
-   return scenarioStatuses
-}
-
 async function handlerLogin() {
   const username = document.getElementsByClassName("mat-input-element")[0];
   const password = document.getElementsByClassName("mat-input-element")[1];
@@ -85,65 +51,55 @@ async function handlerRedirectScenario() {
 
 async function handlerScenario() {
   const checkScenario = async () => {
-    try {
-      const created = await fetch("/api/scenario/page/0/20/DESC/created", {
-        headers: {
-          "accept": "application/json",
-          "content-type": "application/json",
-          "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
-        },
+    // List accessible scenarios
+    const created = await fetch("/api/scenario/page/0/20/DESC/created", {
+      headers: {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
+      },
+      body: "{\"filter\":\"\"}",
+      method: "POST",
+    });
+    const createdJson = await created.json();
+    const scenarioData = createdJson.content.filter(item => item.status === "INSTANTIATION");
+    if (!scenarioData) { // no scenario instantiated
+      return;
+    }
 
-        body: "{\"filter\":\"\"}",
-        method: "POST",
-      });
-      const created_json = await created.json();
-      const scenariodata = created_json.content.filter(item => item.status === "INSTANTIATION");
-        console.log(scenariodata)
-      if (!scenariodata) { // no scenario instantiated
-        return
-      }
-      let scenarioId = null;
-      let exerciseState= null;
-      let instantiationData=null;
-      let instStatus= null;
-      let selectedScenario = null;
-      for ( let item of scenariodata ){
-        console.log(item.id)
+    // Check status of instantiated scenarios
+    let scenarioId = null;
+    for (let item of scenarioData) {
+      const exerciseRunning = await isExerciseRunning(item.id);
+      const scenarioInstantiated = await isScenarioInstantiated(item.id);
+      if (exerciseRunning && scenarioInstantiated) {
         scenarioId = item.id;
-        exerciseState= await checkState(scenarioId);
-        instantiationData = await checkScenarioInstantiation(scenarioId);
-        instStatus = instantiationData[0].scenarioInstanceStatus[0].status;
-        console.log(exerciseState)
-        if(exerciseState==="RUNNING" && instStatus==="RUNNING" ){
-            selectedScenario = item;
-            scenarioId = item.id;
-            break;
-            } 
+        break;
       }
-      const nodeInstancesResponse = await fetch(`/api/scenario_template/nodes_instances/${scenarioId}`, {
-        method: "GET",
-      });
-      const nodeInstances = await nodeInstancesResponse.json();
-      let nodeInstanceId = Object.keys(nodeInstances).map(key => Object.keys(nodeInstances[key])[0])[0];
-      localStorage.setItem("nodeInstanceId", nodeInstanceId);
-      if (!nodeInstanceId) {
-        console.warn("No node instance ID found");
-        return;
-      }
-      localStorage.setItem("scenarioId", scenarioId);
-      const targetUrl = `/scenario-vnc/${scenarioId}/${nodeInstanceId}`;
-      window.location.href = targetUrl;
     }
-    catch (error) {
-      console.error("Error in handlerScenario:", error);
+    if (!scenarioId) { // No scenario ready
+      return;
     }
+
+    // Fetch VM ID to build vnc url
+    const nodeInstancesResponse = await fetch(`/api/scenario_template/nodes_instances/${scenarioId}`, {
+      method: "GET",
+    });
+    const nodeInstances = await nodeInstancesResponse.json();
+    const nodeInstanceId = Object.keys(nodeInstances).map(key => Object.keys(nodeInstances[key])[0])[0];
+    if (!nodeInstanceId) {
+      console.warn("No node instance ID found");
+      return;
+    }
+    window.location.href = `/scenario-vnc/${scenarioId}/${nodeInstanceId}`;
+
   }
   setInterval(checkScenario, 30000)
   await checkScenario();
 }
 
 async function handlerScenarioVnc() {
-  let scenarioId = localStorage.getItem("scenarioId");
+  // Try to fullscreen
   try {
     const button = document.getElementsByClassName("vnc-console-mat-icon-button")[0];
     if (button)
@@ -153,21 +109,52 @@ async function handlerScenarioVnc() {
     console.error("Error in handlerScenario_vnc:", error);
   }
 
+  const scenarioId = window.location.pathname.split('/')[2] || undefined;
   setInterval(async () => {
-    const scenarioStatus = await checkScenarioInstantiation(scenarioId);
-    const instStatus = scenarioStatus[0].scenarioInstanceStatus[0].status;
-    const exStatus = await checkState(scenarioId);
-    if (scenarioStatus[0].status != "INSTANTIATION" && instStatus !== "RUNNING" || exStatus !== "RUNNING" ) {
+    const exerciseRunning = await isExerciseRunning(scenarioId);
+    const scenarioInstantiated = await isScenarioInstantiated(scenarioId);
+    if (!scenarioInstantiated || !exerciseRunning) {
       location.href = '/scenario';
+      return; // If scenario stopped, return to /scenario
     }
+
     const statusText = document.getElementsByClassName("font-size-16");
-    if (statusText.length > 0 && document.getElementsByClassName("mat-button-wrapper")[0].innerText ==="Reconnect") {
+    if (statusText.length > 0 && document.getElementsByClassName("mat-button-wrapper")[0].innerText === "Reconnect") {
       const connectbutton = document.getElementsByClassName("mat-button-wrapper")[0].parentNode;
-      if (connectbutton)
+      if (connectbutton) { // If Reconnect button exist, click on it
         connectbutton.click();
+      }
     }
-  }, 30000)
+  }, 30000);
 }
+
+async function isExerciseRunning(scenarioId) {
+  const state = await fetch(`/api/exercise/state/${scenarioId}`, {
+    method: "GET",
+  });
+  let data = await state.json();
+  return (data.exerciseState === "RUNNING");
+}
+
+async function isScenarioInstantiated(scenarioId) {
+  const scenarioStatusResponse = await fetch("/api/scenario/instantiation_statuses", {
+    headers: {
+      "accept": "application/json",
+      "content-type": "application/json",
+      "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
+    },
+
+    body: JSON.stringify([scenarioId]),
+    method: "POST",
+  });
+
+  const scenarioStatuses = await scenarioStatusResponse.json();
+  return (scenarioStatuses.length > 0) &&
+    (scenarioStatuses[0].status == "RUNNING") &&
+    (scenarioStatuses[0].scenarioInstanceStatus[0].status == "RUNNING");
+}
+
+
 // Trigger CITEFController on each URL change
 (function (history) {
   let pushState = history.pushState;
