@@ -7,6 +7,7 @@
 // @version     1.5
 // @author      Julien Cassagne
 // @description 2025-05-10, 10:28:14 p.m.
+// @require     file:///Users/sarrasassi/Documents/userscripts/citefcontroller.user.js
 // @downloadURL https://raw.githubusercontent.com/UOttawa-Cyber-Range-Scenarios/userscripts/refs/heads/main/citefcontroller.user.js
 // ==/UserScript==
 
@@ -117,10 +118,7 @@ async function handlerScenario() {
             selectedScenario = item;
             scenarioId = item.id;
             break;
-            }
-        else{
-           return
-        }   
+            } 
       }
       const nodeInstancesResponse = await fetch(`/api/scenario_template/nodes_instances/${scenarioId}`, {
         method: "GET",
@@ -183,7 +181,3 @@ async function handlerScenarioVnc() {
 
 // Trigger CITEFController on first page load
 window.onload = CITEFController;
-
-// 1. add instantiation_statuses in check status 
-// 2. if  document.getElementsByClassName("mat-button-wrapper")[0].innerText ==="Reconnect"
-//     then    document.getElementsByClassName("mat-button-wrapper")[0].parentNode au lieu de Disconnected 
