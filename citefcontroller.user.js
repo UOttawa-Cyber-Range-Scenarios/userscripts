@@ -35,6 +35,37 @@ async function CITEFController() {
   }
 }
 
+async function checkState (scenarioId) {
+   const state = await fetch(`/api/exercise/state/${scenarioId}`, {
+        method: "GET",
+      });
+      let exerciseState = await state.json();
+      if (exerciseState.exerciseState === "NOT_RUNNING") {
+        return
+      }
+      return exerciseState.exerciseState;
+}
+
+async function checkScenarioInstantiation (scenarioId) {
+  const scenarioStatusResponse = await fetch("/api/scenario/instantiation_statuses", {
+      headers: {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
+      },
+
+      body: JSON.stringify([scenarioId]),
+      method: "POST",
+    });
+
+    const scenarioStatuses = await scenarioStatusResponse.json();
+    if (!scenarioStatuses) {
+      console.warn("No running scenario found");
+      return;
+    }
+   return scenarioStatuses
+}
+
 async function handlerLogin() {
   const username = document.getElementsByClassName("mat-input-element")[0];
   const password = document.getElementsByClassName("mat-input-element")[1];
@@ -64,14 +95,33 @@ async function handlerScenario() {
         body: "{\"filter\":\"\"}",
         method: "POST",
       });
-
       const created_json = await created.json();
-      const scenariodata = created_json.content.find(item => item.status === "INSTANTIATION")
-      if (!scenariodata) { // no scenario instintiated
+      const scenariodata = created_json.content.filter(item => item.status === "INSTANTIATION");
+        console.log(scenariodata)
+      if (!scenariodata) { // no scenario instantiated
         return
       }
-      let scenarioId = scenariodata.id;
-      localStorage.setItem("scenarioId", scenarioId);
+      let scenarioId = null;
+      let exerciseState= null;
+      let instantiationData=null;
+      let instStatus= null;
+      let selectedScenario = null;
+      for ( let item of scenariodata ){
+        console.log(item.id)
+        scenarioId = item.id;
+        exerciseState= await checkState(scenarioId);
+        instantiationData = await checkScenarioInstantiation(scenarioId);
+        instStatus = instantiationData[0].scenarioInstanceStatus[0].status;
+        console.log(exerciseState)
+        if(exerciseState==="RUNNING" && instStatus==="RUNNING" ){
+            selectedScenario = item;
+            scenarioId = item.id;
+            break;
+            }
+        else{
+           return
+        }   
+      }
       const nodeInstancesResponse = await fetch(`/api/scenario_template/nodes_instances/${scenarioId}`, {
         method: "GET",
       });
@@ -82,14 +132,7 @@ async function handlerScenario() {
         console.warn("No node instance ID found");
         return;
       }
-      const state = await fetch(`/api/exercise/state/${scenarioId}`, {
-        method: "GET",
-      });
-      const exerciseState = await state.json();
-      if (exerciseState.exerciseState === "NOT_RUNNING") {
-        return
-      }
-
+      localStorage.setItem("scenarioId", scenarioId);
       const targetUrl = `/scenario-vnc/${scenarioId}/${nodeInstanceId}`;
       window.location.href = targetUrl;
     }
@@ -97,14 +140,12 @@ async function handlerScenario() {
       console.error("Error in handlerScenario:", error);
     }
   }
-
   setInterval(checkScenario, 30000)
   await checkScenario();
 }
 
 async function handlerScenarioVnc() {
   let scenarioId = localStorage.getItem("scenarioId");
-  let nodeInstanceId = localStorage.getItem("nodeInstanceId");
   try {
     const button = document.getElementsByClassName("vnc-console-mat-icon-button")[0];
     if (button)
@@ -115,28 +156,15 @@ async function handlerScenarioVnc() {
   }
 
   setInterval(async () => {
-    const scenarioStatusResponse = await fetch("/api/scenario/instantiation_statuses", {
-      headers: {
-        "accept": "application/json",
-        "content-type": "application/json",
-        "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
-      },
-
-      body: JSON.stringify([scenarioId]),
-      method: "POST",
-    });
-
-    const scenarioStatuses = await scenarioStatusResponse.json();
-    if (!scenarioStatuses) {
-      console.warn("No running scenario found");
-      return;
-    }
-    if (scenarioStatuses[0].status != "INSTANTIATION") {
+    const scenarioStatus = await checkScenarioInstantiation(scenarioId);
+    const instStatus = scenarioStatus[0].scenarioInstanceStatus[0].status;
+    const exStatus = await checkState(scenarioId);
+    if (scenarioStatus[0].status != "INSTANTIATION" && instStatus !== "RUNNING" || exStatus !== "RUNNING" ) {
       location.href = '/scenario';
     }
     const statusText = document.getElementsByClassName("font-size-16");
-    if (statusText.length > 0 && statusText[0].innerText == "Disconnected") {
-      const connectbutton = document.getElementsByClassName("mat-raised-button")[0];
+    if (statusText.length > 0 && document.getElementsByClassName("mat-button-wrapper")[0].innerText ==="Reconnect") {
+      const connectbutton = document.getElementsByClassName("mat-button-wrapper")[0].parentNode;
       if (connectbutton)
         connectbutton.click();
     }
@@ -155,3 +183,7 @@ async function handlerScenarioVnc() {
 
 // Trigger CITEFController on first page load
 window.onload = CITEFController;
+
+// 1. add instantiation_statuses in check status 
+// 2. if  document.getElementsByClassName("mat-button-wrapper")[0].innerText ==="Reconnect"
+//     then    document.getElementsByClassName("mat-button-wrapper")[0].parentNode au lieu de Disconnected 
