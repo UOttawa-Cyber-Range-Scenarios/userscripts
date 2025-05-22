@@ -4,7 +4,7 @@
 // @match       https://citefplus.griseo.ca/*
 // @match       http://10.20.1.11:8080/*
 // @grant       none
-// @version     1.6
+// @version     1.7
 // @author      Julien Cassagne, Sarra Sassi  
 // @description Automate CITEF interface on CR iMacs 
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
@@ -34,6 +34,7 @@ async function CITEFController() {
 }
 
 async function handlerLogin() {
+  await new Promise(resolve => setTimeout(resolve, 2000));
   const username = document.getElementsByClassName("mat-input-element")[0];
   const password = document.getElementsByClassName("mat-input-element")[1];
   const submitButton = document.getElementsByClassName("submit-button")[0];
