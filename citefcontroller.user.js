@@ -4,7 +4,7 @@
 // @match       https://citefplus.griseo.ca/*
 // @match       http://10.20.1.11:8080/*
 // @grant       none
-// @version     1.7
+// @version     1.8
 // @author      Julien Cassagne, Sarra Sassi  
 // @description Automate CITEF interface on CR iMacs 
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
@@ -151,8 +151,8 @@ async function isScenarioInstantiated(scenarioId) {
 
   const scenarioStatuses = await scenarioStatusResponse.json();
   return (scenarioStatuses.length > 0) &&
-    (scenarioStatuses[0].status == "RUNNING") &&
-    (scenarioStatuses[0].scenarioInstanceStatus[0].status == "RUNNING");
+    (scenarioStatuses[0].status == "INSTANTIATION") &&
+    (scenarioStatuses[0].scenarioInstanceStatus.status == "RUNNING");
 }
 
 
