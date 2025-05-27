@@ -3,18 +3,19 @@
 // @namespace   uOttawa-IBM Cyber Range script
 // @match       https://citefplus.griseo.ca/scenario-user-management/*
 // @match       https://citefplus.griseo.ca/scenario-vm-access-management/*
-// @match       http://10.20.1.11:8080/*
+// @match       http://10.20.1.11:8080/scenario-user-management/*
+// @match       http://10.20.1.11:8080/scenario-vm-access-management/*
 // @grant       none
 // @author      Sarra Sassi  
 // @version     1.0
-// @description 2025-05-10, 10:28:14 p.m.
+// @description Automatically add student users to scenarios and set permissions on CITEF.
+// @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
 // @downloadURL https://raw.githubusercontent.com/UOttawa-Cyber-Range-Scenarios/userscripts/refs/heads/main/ManageVMVisibility.user.js
 // ==/UserScript==
 
 async function assignUsers(selectedValue, nodesValue) {
     const scenarioId = window.location.pathname.split('/')[2];
     let studentIdDict = {};
-    let promises = [];
     const Users = await fetch(`/api/user/for_object/${scenarioId}/ScenarioEnvironment`, {
         method: "GET",
     });
@@ -22,7 +23,7 @@ async function assignUsers(selectedValue, nodesValue) {
     for (let user of usersJson) {
         if (user.username.startsWith("student")) {
             studentIdDict[user.username] = user.id
-            promises.push(fetch(`/api/scenario/assign_team_member/${scenarioId}/${user.id}`, {
+            const assignRes = await fetch(`/api/scenario/assign_team_member/${scenarioId}/${user.id}`, {
                 headers: {
                     "accept": "application/json",
                     "content-type": "application/json",
@@ -30,8 +31,12 @@ async function assignUsers(selectedValue, nodesValue) {
                 },
                 body: "\"\"",
                 method: "POST",
-            }));
-            promises.push(fetch(`/api/scenario/set_permissions`, {
+            });
+            if (!assignRes.ok) {
+                console.error(`Failed to assign team member for ${user.username}:`, await assignRes.text());
+            }
+
+            const permRes = await fetch(`/api/scenario/set_permissions`, {
                 headers: {
                     "accept": "application/json",
                     "content-type": "application/json",
@@ -44,13 +49,13 @@ async function assignUsers(selectedValue, nodesValue) {
                     assignToUserId: user.id,
                     objectPermissions: ["FINALIZED_SCENARIO_VIEW"]
                 })
-            }));
+            });
+            if (!permRes.ok) {
+                console.error(`Failed to set permissions for ${user.username}:`, await permRes.text());
+            }
         }
     }
-    console.debug("Adding users to scenario")
-    await Promise.all(promises);
-    console.debug("Done")
-    const alternative= await fetch(`/api/scenario/${scenarioId}`,{
+    const alternative = await fetch(`/api/scenario/${scenarioId}`, {
         accept: "application/json",
         method: "GET",
     });
@@ -74,14 +79,20 @@ async function handleDropdownSelection(selectedValue, studentIdDict, nodesValue,
         nodeMap[node.displayName] = node;
     }
     const baseName = (selectedValue === "Automatique" || selectedValue === null) ? workstations[0].name : selectedValue.replace(/[^a-zA-Z]/g, '');
+    const nodeInstancesResponse = await fetch(`/api/scenario_template/nodes_instances/${scenarioId}`);
+    const nodeInstances = await nodeInstancesResponse.json();
+    const nodeIdMap = {};
+    for (const [parentKey, innerObj] of Object.entries(nodeInstances)) {
+        for (const [key, value] of Object.entries(innerObj)) {
+            const [displayName] = value;
+            nodeIdMap[displayName] = parentKey;
+        }
+    }
     for (let i = 0; i < userIds.length; i++) {
-        const userId = userIds[i];
+        let userId = userIds[i];
         const indexedValue = `${baseName} [${i + 1}]`; // e.g., "Win Workstation [1]"
         const node = nodeMap[indexedValue];
-        if (!node) {
-            console.warn(`No matching VM for displayName: ${indexedValue}`);
-            continue;
-        }
+        const nodeId = nodeIdMap[indexedValue];
         const assignUsers = await fetch(`/api/scenario_template/assign_user_vm_instances/${scenarioId}`, {
             headers: {
                 "accept": "application/json",
@@ -94,10 +105,26 @@ async function handleDropdownSelection(selectedValue, studentIdDict, nodesValue,
                 userIdToAssign: userId
             })
         });
-        if (assignUsers.ok) {
-            console.log("Successfully assigned!");
+        const nodeVisibility = await fetch(`/api/scenario_view`, {
+            headers: {
+                "accept": "application/json",
+                "content-type": "application/json",
+                "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
+            },
+            method: "PUT",
+            body: JSON.stringify({
+                vmInstancesToAssign: [node.vmInstanceName],
+                userIdToAssign: userId,
+                apiRouteBase: "scenario_view",
+                allowedNodesIds: [nodeId],
+                scenarioEnvironmentId: scenarioId,
+                userId: userId,
+            })
+        });
+        if (assignUsers.ok && nodeVisibility.ok) {
+            console.log(`User ${userId} assigned successfully to ${indexedValue}`);
         } else {
-            console.error("Failed to assign:", await assignUsers.text());
+            console.error("Assign or visibility failed:", await assignRes.text(), await visibilityRes.text());
         }
     }
 }
@@ -116,6 +143,10 @@ async function AddButton() {
     placeholder.value = "Automatique";
     placeholder.selected = true;
     dropdown.appendChild(placeholder);
+    const loadingText = document.createElement("span");
+    loadingText.innerText = "Loading...";
+    loadingText.style.marginLeft = "10px";
+    loadingText.style.display = "none";
     const toolbar = document.getElementsByClassName("mat-elevation-z1 mat-toolbar")[0];
     const container = toolbar.childNodes[1];
     container.appendChild(button);
@@ -125,9 +156,11 @@ async function AddButton() {
         method: "GET",
     });
     const nodesValue = await nodes.json();
-    button.addEventListener("click", () => assignUsers(selectedValue, nodesValue));
     const cleanedNamesSet = new Set();
-    let options =[];
+    let options = [];
+    if (!Array.isArray(nodesValue)) {
+        return;
+    }
     for (let node of nodesValue) {
         let newVmDisplayName = node.displayName.replace(/[^a-zA-Z\s]/g, '');
         if (newVmDisplayName.includes("Workstation") && !cleanedNamesSet.has(newVmDisplayName)) {
@@ -141,7 +174,20 @@ async function AddButton() {
     }
     dropdown.addEventListener("change", (event) => {
         selectedValue = event.target.value;
-    })
-     
+    });
+    button.addEventListener("click", async () => {
+        button.disabled = true;
+        loadingText.style.display = "inline";
+
+        try {
+            await assignUsers(selectedValue, nodesValue);
+        } catch (error) {
+            console.error("Error in assignUsers:", error);
+        } finally {
+            button.disabled = false;
+            loadingText.style.display = "none";
+        }
+    });
 }
 window.onload = AddButton
+
