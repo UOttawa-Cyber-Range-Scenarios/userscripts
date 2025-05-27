@@ -23,13 +23,13 @@ async function CITEFController() {
   await new Promise(resolve => setTimeout(resolve, 1000)); // wait util js gets executed
 
   const route = window.location.pathname.split('/')[1] || undefined;
-  console.warn(`CITEFController: Starting on ${route}`);
+  console.info(`CITEFController: Starting on ${route}`);
 
   const handler = routeHandlers[route];
   if (handler) {
     await handler();
   } else {
-    console.warn(`CITEFController: No function defined for ${route}`);
+    console.debug(`CITEFController: No function defined for ${route}`);
   }
 }
 
@@ -53,7 +53,7 @@ async function handlerRedirectScenario() {
 async function handlerScenario() {
   const checkScenario = async () => {
     // List accessible scenarios
-    const created = await fetch("/api/scenario/page/0/20/DESC/created", {
+    const created = await fetch("/api/scenario/page/0/2003/DESC/created", {
       headers: {
         "accept": "application/json",
         "content-type": "application/json",
@@ -89,7 +89,7 @@ async function handlerScenario() {
     const nodeInstances = await nodeInstancesResponse.json();
     const nodeInstanceId = Object.keys(nodeInstances).map(key => Object.keys(nodeInstances[key])[0])[0];
     if (!nodeInstanceId) {
-      console.warn("No node instance ID found");
+      console.warn("CITEFController-handlerScenario: No node instance ID found");
       return;
     }
     window.location.href = `/scenario-vnc/${scenarioId}/${nodeInstanceId}`;
@@ -107,7 +107,7 @@ async function handlerScenarioVnc() {
       button.click();
   }
   catch (error) {
-    console.error("Error in handlerScenario_vnc:", error);
+    console.error("CITEFController-handlerScenarioVnc: ", error);
   }
 
   const scenarioId = window.location.pathname.split('/')[2] || undefined;
