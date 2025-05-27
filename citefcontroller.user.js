@@ -23,13 +23,13 @@ async function CITEFController() {
   await new Promise(resolve => setTimeout(resolve, 1000)); // wait util js gets executed
 
   const route = window.location.pathname.split('/')[1] || undefined;
-  console.warn(`CITEFController: Starting on ${route}`);
+  console.info(`CITEFController: Starting on ${route}`);
 
   const handler = routeHandlers[route];
   if (handler) {
     await handler();
   } else {
-    console.warn(`CITEFController: No function defined for ${route}`);
+    console.debug(`CITEFController: No function defined for ${route}`);
   }
 }
 
@@ -64,7 +64,6 @@ async function handlerScenario() {
     });
     const createdJson = await created.json();
     const scenarioData = createdJson.content.filter(item => item.status === "INSTANTIATION");
-    console.log(scenarioData)
     if (!scenarioData) { // no scenario instantiated
       return;
     }
@@ -79,7 +78,6 @@ async function handlerScenario() {
         break;
       }
     }
-    console.log(scenarioId)
     if (!scenarioId) { // No scenario ready
       return;
     }
@@ -91,7 +89,7 @@ async function handlerScenario() {
     const nodeInstances = await nodeInstancesResponse.json();
     const nodeInstanceId = Object.keys(nodeInstances).map(key => Object.keys(nodeInstances[key])[0])[0];
     if (!nodeInstanceId) {
-      console.warn("No node instance ID found");
+      console.warn("CITEFController-handlerScenario: No node instance ID found");
       return;
     }
     window.location.href = `/scenario-vnc/${scenarioId}/${nodeInstanceId}`;
@@ -109,15 +107,13 @@ async function handlerScenarioVnc() {
       button.click();
   }
   catch (error) {
-    console.error("Error in handlerScenario_vnc:", error);
+    console.error("CITEFController-handlerScenarioVnc: ", error);
   }
 
   const scenarioId = window.location.pathname.split('/')[2] || undefined;
   setInterval(async () => {
     const exerciseRunning = await isExerciseRunning(scenarioId);
     const scenarioInstantiated = await isScenarioInstantiated(scenarioId);
-    console.log(exerciseRunning)
-    console.log(scenarioInstantiated)
     if (!scenarioInstantiated || !exerciseRunning) {
       location.href = '/scenario';
       return; // If scenario stopped, return to /scenario
@@ -155,8 +151,8 @@ async function isScenarioInstantiated(scenarioId) {
 
   const scenarioStatuses = await scenarioStatusResponse.json();
   return (scenarioStatuses.length > 0) &&
-    (scenarioStatuses[0].status == "RUNNING") &&
-    (scenarioStatuses[0].scenarioInstanceStatus[0].status == "RUNNING");
+    (scenarioStatuses[0].status == "INSTANTIATION") &&
+    (scenarioStatuses[0].scenarioInstanceStatus.status == "RUNNING");
 }
 
 
