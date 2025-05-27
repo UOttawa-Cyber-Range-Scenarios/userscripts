@@ -3,11 +3,13 @@
 // @namespace   uOttawa-IBM Cyber Range script
 // @match       https://citefplus.griseo.ca/scenario-user-management/*
 // @match       https://citefplus.griseo.ca/scenario-vm-access-management/*
-// @match       http://10.20.1.11:8080/*
+// @match       http://10.20.1.11:8080/scenario-user-management/*
+// @match       http://10.20.1.11:8080/scenario-vm-access-management/*
 // @grant       none
 // @author      Sarra Sassi  
 // @version     1.0
-// @description 2025-05-10, 10:28:14 p.m.
+// @description Automatically add student users to scenarios and set permissions on CITEF.
+// @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
 // @downloadURL https://raw.githubusercontent.com/UOttawa-Cyber-Range-Scenarios/userscripts/refs/heads/main/ManageVMVisibility.user.js
 // ==/UserScript==
 
@@ -47,10 +49,10 @@ async function assignUsers(selectedValue, nodesValue) {
             }));
         }
     }
-    console.debug("Adding users to scenario")
+    console.debug("Adding 30 users to scenario")
     await Promise.all(promises);
     console.debug("Done")
-    const alternative= await fetch(`/api/scenario/${scenarioId}`,{
+    const alternative = await fetch(`/api/scenario/${scenarioId}`, {
         accept: "application/json",
         method: "GET",
     });
@@ -73,6 +75,7 @@ async function handleDropdownSelection(selectedValue, studentIdDict, nodesValue,
     for (let node of nodesValue) {
         nodeMap[node.displayName] = node;
     }
+    const promises = []
     const baseName = (selectedValue === "Automatique" || selectedValue === null) ? workstations[0].name : selectedValue.replace(/[^a-zA-Z]/g, '');
     for (let i = 0; i < userIds.length; i++) {
         const userId = userIds[i];
@@ -82,7 +85,7 @@ async function handleDropdownSelection(selectedValue, studentIdDict, nodesValue,
             console.warn(`No matching VM for displayName: ${indexedValue}`);
             continue;
         }
-        const assignUsers = await fetch(`/api/scenario_template/assign_user_vm_instances/${scenarioId}`, {
+        promises.push(fetch(`/api/scenario_template/assign_user_vm_instances/${scenarioId}`, {
             headers: {
                 "accept": "application/json",
                 "content-type": "application/json",
@@ -93,11 +96,16 @@ async function handleDropdownSelection(selectedValue, studentIdDict, nodesValue,
                 vmInstancesToAssign: [node.vmInstanceName],
                 userIdToAssign: userId
             })
-        });
-        if (assignUsers.ok) {
-            console.log("Successfully assigned!");
+        }));
+    }
+
+    console.debug("Setting permissions for users of scenario")
+    const setPermissions = await Promise.all(promises);
+    for (let setPermission of setPermissions) {
+        if (setPermission.ok) {
+            console.log(`Permission successfully assigned`);
         } else {
-            console.error("Failed to assign:", await assignUsers.text());
+            console.error("Failed to assign permission:", await setPermission.text());
         }
     }
 }
@@ -127,7 +135,7 @@ async function AddButton() {
     const nodesValue = await nodes.json();
     button.addEventListener("click", () => assignUsers(selectedValue, nodesValue));
     const cleanedNamesSet = new Set();
-    let options =[];
+    let options = [];
     for (let node of nodesValue) {
         let newVmDisplayName = node.displayName.replace(/[^a-zA-Z\s]/g, '');
         if (newVmDisplayName.includes("Workstation") && !cleanedNamesSet.has(newVmDisplayName)) {
@@ -142,6 +150,6 @@ async function AddButton() {
     dropdown.addEventListener("change", (event) => {
         selectedValue = event.target.value;
     })
-     
+
 }
 window.onload = AddButton
