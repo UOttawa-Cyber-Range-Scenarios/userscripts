@@ -49,10 +49,10 @@ async function assignUsers(selectedValue, nodesValue) {
             }));
         }
     }
-    console.debug("Adding 30 users to scenario")
+    console.debug("Adding users to scenario")
     await Promise.all(promises);
     console.debug("Done")
-    const alternative = await fetch(`/api/scenario/${scenarioId}`, {
+    const alternative= await fetch(`/api/scenario/${scenarioId}`,{
         accept: "application/json",
         method: "GET",
     });
@@ -75,7 +75,6 @@ async function handleDropdownSelection(selectedValue, studentIdDict, nodesValue,
     for (let node of nodesValue) {
         nodeMap[node.displayName] = node;
     }
-    const promises = []
     const baseName = (selectedValue === "Automatique" || selectedValue === null) ? workstations[0].name : selectedValue.replace(/[^a-zA-Z]/g, '');
     for (let i = 0; i < userIds.length; i++) {
         const userId = userIds[i];
@@ -85,7 +84,7 @@ async function handleDropdownSelection(selectedValue, studentIdDict, nodesValue,
             console.warn(`No matching VM for displayName: ${indexedValue}`);
             continue;
         }
-        promises.push(fetch(`/api/scenario_template/assign_user_vm_instances/${scenarioId}`, {
+        const assignUsers = await fetch(`/api/scenario_template/assign_user_vm_instances/${scenarioId}`, {
             headers: {
                 "accept": "application/json",
                 "content-type": "application/json",
@@ -96,16 +95,11 @@ async function handleDropdownSelection(selectedValue, studentIdDict, nodesValue,
                 vmInstancesToAssign: [node.vmInstanceName],
                 userIdToAssign: userId
             })
-        }));
-    }
-
-    console.debug("Setting permissions for users of scenario")
-    const setPermissions = await Promise.all(promises);
-    for (let setPermission of setPermissions) {
-        if (setPermission.ok) {
-            console.log(`Permission successfully assigned`);
+        });
+        if (assignUsers.ok) {
+            console.log("Successfully assigned!");
         } else {
-            console.error("Failed to assign permission:", await setPermission.text());
+            console.error("Failed to assign:", await assignUsers.text());
         }
     }
 }
@@ -135,7 +129,7 @@ async function AddButton() {
     const nodesValue = await nodes.json();
     button.addEventListener("click", () => assignUsers(selectedValue, nodesValue));
     const cleanedNamesSet = new Set();
-    let options = [];
+    let options =[];
     for (let node of nodesValue) {
         let newVmDisplayName = node.displayName.replace(/[^a-zA-Z\s]/g, '');
         if (newVmDisplayName.includes("Workstation") && !cleanedNamesSet.has(newVmDisplayName)) {
@@ -150,6 +144,6 @@ async function AddButton() {
     dropdown.addEventListener("change", (event) => {
         selectedValue = event.target.value;
     })
-
+     
 }
 window.onload = AddButton
