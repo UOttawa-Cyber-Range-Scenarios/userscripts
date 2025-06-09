@@ -7,7 +7,7 @@
 // @match       http://10.20.1.11:8080/scenario-vm-access-management/*
 // @grant       none
 // @author      Sarra Sassi  
-// @version     1.1
+// @version     1.0
 // @require     /Users/sarrasassi/Documents/userscripts/ManageVMVisibility.user.js
 // @description Automatically add student users to scenarios and set permissions on CITEF.
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
@@ -18,12 +18,6 @@ async function assignUsers(selectedValue, nodesValue) {
     const scenarioId = window.location.pathname.split('/')[2];
     let studentIdDict = {};
     const Users = await fetch(`/api/user/for_object/${scenarioId}/ScenarioEnvironment`, {
-        headers: {
-            "accept": "application/json",
-            "content-type": "application/json",
-            "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
-        },
-
         method: "GET",
     });
     let usersJson = await Users.json();
