@@ -4,13 +4,14 @@
 // @match       https://citefplus.griseo.ca/*
 // @match       http://10.20.1.11:8080/*
 // @grant       none
-// @version     1.8
+// @version     1.9
 // @author      Julien Cassagne, Sarra Sassi  
 // @description Automate CITEF interface on CR iMacs 
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
 // @downloadURL https://raw.githubusercontent.com/UOttawa-Cyber-Range-Scenarios/userscripts/refs/heads/main/citefcontroller.user.js
 // ==/UserScript==
 
+let currentController = null;
 const routeHandlers = {
   'login': handlerLogin,
   'password-reset': handlerRedirectScenario,
@@ -20,6 +21,9 @@ const routeHandlers = {
 };
 
 async function CITEFController() {
+  if (currentController !== null) {
+    clearInterval(currentController);
+  }
   await new Promise(resolve => setTimeout(resolve, 1000)); // wait util js gets executed
 
   const route = window.location.pathname.split('/')[1] || undefined;
@@ -34,16 +38,20 @@ async function CITEFController() {
 }
 
 async function handlerLogin() {
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  const username = document.getElementsByClassName("mat-input-element")[0];
-  const password = document.getElementsByClassName("mat-input-element")[1];
-  const submitButton = document.getElementsByClassName("submit-button")[0];
+  const checkLogin = async () => {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const username = document.getElementsByClassName("mat-input-element")[0];
+    const password = document.getElementsByClassName("mat-input-element")[1];
+    const submitButton = document.getElementsByClassName("submit-button")[0];
 
-  if (username.value == "" || password.value == "") {
-    console.warn("CITEFController-handlerLogin: Missing username / password");
-    return;
+    if (username.value == "" || password.value == "") {
+      console.warn("CITEFController-handlerLogin: Missing username / password");
+      return;
+    }
+    submitButton.click();
   }
-  submitButton.click();
+  currentController = setInterval(checkLogin, 900000);
+  await checkLogin();
 }
 
 async function handlerRedirectScenario() {
@@ -93,9 +101,8 @@ async function handlerScenario() {
       return;
     }
     window.location.href = `/scenario-vnc/${scenarioId}/${nodeInstanceId}`;
-
   }
-  setInterval(checkScenario, 30000)
+  currentController = setInterval(checkScenario, 30000);
   await checkScenario();
 }
 
@@ -111,7 +118,7 @@ async function handlerScenarioVnc() {
   }
 
   const scenarioId = window.location.pathname.split('/')[2] || undefined;
-  setInterval(async () => {
+  currentController = setInterval(async () => {
     const exerciseRunning = await isExerciseRunning(scenarioId);
     const scenarioInstantiated = await isScenarioInstantiated(scenarioId);
     if (!scenarioInstantiated || !exerciseRunning) {

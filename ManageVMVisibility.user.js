@@ -7,7 +7,8 @@
 // @match       http://10.20.1.11:8080/scenario-vm-access-management/*
 // @grant       none
 // @author      Sarra Sassi  
-// @version     1.0
+// @version     1.1
+// @require     /Users/sarrasassi/Documents/userscripts/ManageVMVisibility.user.js
 // @description Automatically add student users to scenarios and set permissions on CITEF.
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
 // @downloadURL https://raw.githubusercontent.com/UOttawa-Cyber-Range-Scenarios/userscripts/refs/heads/main/ManageVMVisibility.user.js
@@ -17,6 +18,12 @@ async function assignUsers(selectedValue, nodesValue) {
     const scenarioId = window.location.pathname.split('/')[2];
     let studentIdDict = {};
     const Users = await fetch(`/api/user/for_object/${scenarioId}/ScenarioEnvironment`, {
+        headers: {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
+        },
+
         method: "GET",
     });
     let usersJson = await Users.json();
@@ -29,7 +36,7 @@ async function assignUsers(selectedValue, nodesValue) {
                     "content-type": "application/json",
                     "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
                 },
-                body: "\"\"",
+                body: "{}",
                 method: "POST",
             });
             if (!assignRes.ok) {
@@ -71,14 +78,14 @@ async function assignUsers(selectedValue, nodesValue) {
         .filter(node => node.virtualMachine && node.virtualMachine.multiplicity >= 30);
     await handleDropdownSelection(selectedValue, studentIdDict, nodesValue, scenarioId, workstations);
 }
+
 async function handleDropdownSelection(selectedValue, studentIdDict, nodesValue, scenarioId, workstations) {
-    const userIds = Object.values(studentIdDict);
     // Preprocess nodes into a map for quick lookup
     const nodeMap = {};
     for (let node of nodesValue) {
         nodeMap[node.displayName] = node;
     }
-    const baseName = (selectedValue === "Automatique" || selectedValue === null) ? workstations[0].name : selectedValue.replace(/[^a-zA-Z]/g, '');
+    const baseName = (selectedValue === "Automatique" || selectedValue === null) ? workstations[0].name : selectedValue.replace(/[^a-zA-Z\s]/g, '');
     const nodeInstancesResponse = await fetch(`/api/scenario_template/nodes_instances/${scenarioId}`);
     const nodeInstances = await nodeInstancesResponse.json();
     const nodeIdMap = {};
@@ -88,9 +95,14 @@ async function handleDropdownSelection(selectedValue, studentIdDict, nodesValue,
             nodeIdMap[displayName] = parentKey;
         }
     }
+    await setStudentsPermission(nodeIdMap, studentIdDict, scenarioId, baseName, nodeMap, selectedValue);
+}
+
+async function setStudentsPermission(nodeIdMap, studentIdDict, scenarioId, baseName, nodeMap, selectedValue) {
+    const userIds = Object.values(studentIdDict);
     for (let i = 0; i < userIds.length; i++) {
         let userId = userIds[i];
-        const indexedValue = `${baseName} [${i + 1}]`; // e.g., "Win Workstation [1]"
+        const indexedValue = (selectedValue === "Automatique" || selectedValue === null) ? `${baseName} [${i + 1}]` : `${baseName}[${i + 1}]`; // e.g., "Win Workstation [1]"
         const node = nodeMap[indexedValue];
         const nodeId = nodeIdMap[indexedValue];
         const assignUsers = await fetch(`/api/scenario_template/assign_user_vm_instances/${scenarioId}`, {
@@ -124,10 +136,11 @@ async function handleDropdownSelection(selectedValue, studentIdDict, nodesValue,
         if (assignUsers.ok && nodeVisibility.ok) {
             console.log(`User ${userId} assigned successfully to ${indexedValue}`);
         } else {
-            console.error("Assign or visibility failed:", await assignRes.text(), await visibilityRes.text());
+            console.error("Assign or visibility failed:", await assignUsers.text(), await nodeVisibility.text());
         }
     }
 }
+
 async function AddButton() {
     await new Promise(resolve => setTimeout(resolve, 1000));
     const scenarioId = window.location.pathname.split('/')[2];
@@ -178,7 +191,6 @@ async function AddButton() {
     button.addEventListener("click", async () => {
         button.disabled = true;
         loadingText.style.display = "inline";
-
         try {
             await assignUsers(selectedValue, nodesValue);
         } catch (error) {
