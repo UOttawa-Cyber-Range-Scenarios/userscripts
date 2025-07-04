@@ -74,18 +74,24 @@ async function assignUsers(selectedValue, nodesValue) {
 }
 
 async function handleDropdownSelection(selectedValue, studentIdDict, nodesValue, scenarioId, workstations) {
-    // Preprocess nodes into a map for quick lookup
     const nodeMap = {};
+    let baseName = "";
     for (let node of nodesValue) {
         nodeMap[node.displayName] = node;
     }
-    const baseName = (selectedValue === "Automatique" || selectedValue === null) ? workstations[0].name : selectedValue.replace(/[^a-zA-Z\s]/g, '');
+    if ((selectedValue === "Automatique" || selectedValue === null) && workstations[0] == undefined) {
+        console.log("No workstations with multiplicity over 30. Please select a value from the dropdown list.");
+        return;
+    }
+    else {
+        baseName = (selectedValue === "Automatique" || selectedValue === null) ? workstations[0].name : selectedValue.replace(/[^a-zA-Z\s]/g, '');
+    }
     const nodeInstancesResponse = await fetch(`/api/scenario_template/nodes_instances/${scenarioId}`);
     const nodeInstances = await nodeInstancesResponse.json();
     const nodeIdMap = {};
     for (const [parentKey, innerObj] of Object.entries(nodeInstances)) {
         for (const [key, value] of Object.entries(innerObj)) {
-            const [displayName] = value;
+            const [displayName] = value; // accessing the first element of the array
             nodeIdMap[displayName] = parentKey;
         }
     }
@@ -99,6 +105,9 @@ async function setStudentsPermission(nodeIdMap, studentIdDict, scenarioId, baseN
         const indexedValue = (selectedValue === "Automatique" || selectedValue === null) ? `${baseName} [${i + 1}]` : `${baseName}[${i + 1}]`; // e.g., "Win Workstation [1]"
         const node = nodeMap[indexedValue];
         const nodeId = nodeIdMap[indexedValue];
+        if (!node || !nodeId) {
+            break;
+        }
         const assignUsers = await fetch(`/api/scenario_template/assign_user_vm_instances/${scenarioId}`, {
             headers: {
                 "accept": "application/json",
@@ -108,29 +117,37 @@ async function setStudentsPermission(nodeIdMap, studentIdDict, scenarioId, baseN
             method: "PUT",
             body: JSON.stringify({
                 vmInstancesToAssign: [node.vmInstanceName],
-                userIdToAssign: userId
-            })
-        });
-        const nodeVisibility = await fetch(`/api/scenario_view`, {
-            headers: {
-                "accept": "application/json",
-                "content-type": "application/json",
-                "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
-            },
-            method: "PUT",
-            body: JSON.stringify({
-                vmInstancesToAssign: [node.vmInstanceName],
                 userIdToAssign: userId,
-                apiRouteBase: "scenario_view",
-                allowedNodesIds: [nodeId],
-                scenarioEnvironmentId: scenarioId,
-                userId: userId,
             })
         });
-        if (assignUsers.ok && nodeVisibility.ok) {
+        const bodyData = JSON.stringify({
+            apiRouteBase: "scenario_view",
+            allowedNodesIds: [nodeId],
+            scenarioEnvironmentId: scenarioId,
+            userId: userId,
+        });
+        const headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
+        };
+        let nodeVsibility = await fetch('/api/scenario_view', {
+            headers: headers,
+            method: "POST",
+            body: bodyData
+        });
+        if (nodeVsibility.status === 400) {
+            nodeVsibility = await fetch('/api/scenario_view', {
+                headers: headers,
+                method: "PUT",
+                body: bodyData
+            }); {
+            }
+        }
+        if (assignUsers.ok) {
             console.log(`User ${userId} assigned successfully to ${indexedValue}`);
         } else {
-            console.error("Assign or visibility failed:", await assignUsers.text(), await nodeVisibility.text());
+            console.error("Assign or visibility failed:", assignUsers.text);
         }
     }
 }
@@ -149,11 +166,7 @@ async function AddButton() {
     placeholder.text = "Automatique";
     placeholder.value = "Automatique";
     placeholder.selected = true;
-    dropdown.appendChild(placeholder);
-    const loadingText = document.createElement("span");
-    loadingText.innerText = "Loading...";
-    loadingText.style.marginLeft = "10px";
-    loadingText.style.display = "none";
+    dropdown.appendChild(placeholder); 
     const toolbar = document.getElementsByClassName("mat-elevation-z1 mat-toolbar")[0];
     const container = toolbar.childNodes[1];
     container.appendChild(button);
@@ -163,19 +176,17 @@ async function AddButton() {
         method: "GET",
     });
     const nodesValue = await nodes.json();
-    const cleanedNamesSet = new Set();
     let options = [];
     if (!Array.isArray(nodesValue)) {
         return;
     }
     for (let node of nodesValue) {
         let newVmDisplayName = node.displayName.replace(/[^a-zA-Z\s]/g, '');
-        if (newVmDisplayName.includes("Workstation") && !cleanedNamesSet.has(newVmDisplayName)) {
-            cleanedNamesSet.add(newVmDisplayName);
-            options.push(node.displayName);
+        if (newVmDisplayName.includes("Workstation") && !(options.includes(newVmDisplayName))) {
+            options.push(newVmDisplayName);
             const newOption = document.createElement("option");
-            newOption.value = node.displayName;
-            newOption.text = node.displayName;
+            newOption.value = newVmDisplayName;
+            newOption.text = newVmDisplayName;
             dropdown.appendChild(newOption);
         }
     }
@@ -184,7 +195,6 @@ async function AddButton() {
     });
     button.addEventListener("click", async () => {
         button.disabled = true;
-        loadingText.style.display = "inline";
         try {
             await assignUsers(selectedValue, nodesValue);
         } catch (error) {
