@@ -201,7 +201,6 @@ async function AddButton() {
             console.error("Error in assignUsers:", error);
         } finally {
             button.disabled = false;
-            loadingText.style.display = "none";
         }
     });
 }
