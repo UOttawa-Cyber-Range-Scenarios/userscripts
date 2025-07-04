@@ -4,14 +4,15 @@
 // @match       https://citefplus.griseo.ca/*
 // @match       http://10.20.1.11:8080/*
 // @grant       none
-// @version     1.9
+// @version     1.10
 // @author      Julien Cassagne, Sarra Sassi  
 // @description Automate CITEF interface on CR iMacs 
+// @require /Users/sarrasassi/Documents/userscripts/citefcontroller.user.js
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
 // @downloadURL https://raw.githubusercontent.com/UOttawa-Cyber-Range-Scenarios/userscripts/refs/heads/main/citefcontroller.user.js
 // ==/UserScript==
 
-let currentController = null;
+var currentInterval = null;
 const routeHandlers = {
   'login': handlerLogin,
   'password-reset': handlerRedirectScenario,
@@ -21,8 +22,8 @@ const routeHandlers = {
 };
 
 async function CITEFController() {
-  if (currentController !== null) {
-    clearInterval(currentController);
+  if (currentInterval !== null) {
+    clearInterval(currentInterval);
   }
   await new Promise(resolve => setTimeout(resolve, 1000)); // wait util js gets executed
 
@@ -50,7 +51,8 @@ async function handlerLogin() {
     }
     submitButton.click();
   }
-  currentController = setInterval(checkLogin, 900000);
+  document.getElementsByClassName("mat-input-element")[1].addEventListener('change', checkLogin);
+  currentInterval = setInterval(checkLogin, 30000);
   await checkLogin();
 }
 
@@ -102,7 +104,7 @@ async function handlerScenario() {
     }
     window.location.href = `/scenario-vnc/${scenarioId}/${nodeInstanceId}`;
   }
-  currentController = setInterval(checkScenario, 30000);
+  currentInterval = setInterval(checkScenario, 30000);
   await checkScenario();
 }
 
@@ -118,7 +120,7 @@ async function handlerScenarioVnc() {
   }
 
   const scenarioId = window.location.pathname.split('/')[2] || undefined;
-  currentController = setInterval(async () => {
+  currentInterval = setInterval(async () => {
     const exerciseRunning = await isExerciseRunning(scenarioId);
     const scenarioInstantiated = await isScenarioInstantiated(scenarioId);
     if (!scenarioInstantiated || !exerciseRunning) {
