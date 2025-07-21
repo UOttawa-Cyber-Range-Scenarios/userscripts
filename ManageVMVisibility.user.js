@@ -8,7 +8,6 @@
 // @grant       none
 // @author      Sarra Sassi  
 // @version     1.0
-// @require     /Users/sarrasassi/Documents/userscripts/ManageVMVisibility.user.js
 // @description Automatically add student users to scenarios and set permissions on CITEF.
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
 // @downloadURL https://raw.githubusercontent.com/UOttawa-Cyber-Range-Scenarios/userscripts/refs/heads/main/ManageVMVisibility.user.js
