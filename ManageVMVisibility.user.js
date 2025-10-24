@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        Manage VM access and visibility2
+// @name        Manage VM access and visibility
 // @namespace   uOttawa-IBM Cyber Range script
 // @match       https://citefplus.griseo.ca/scenario-user-management/*
 // @match       https://citefplus.griseo.ca/scenario-vm-access-management/*
@@ -101,7 +101,7 @@ async function handleDropdownSelection(selectedValue, studentIdDict, nodesValue,
 async function setStudentsPermission(nodeIdMap, studentIdDict, scenarioId, baseName, nodeMap, selectedValue) {
   const userIds = Object.values(studentIdDict);
 
-  // 🔄 New: collect all available workstation keys
+  // New: collect all available workstation keys
   const keyPattern = new RegExp(`^${baseName}\\s*\\[(\\d+)\\]$`);
   const availableKeys = Object.keys(nodeMap)
     .map(k => ({ k, m: k.match(keyPattern) }))
@@ -118,14 +118,14 @@ async function setStudentsPermission(nodeIdMap, studentIdDict, scenarioId, baseN
   for (let i = 0; i < userIds.length; i++) {
     const userId = userIds[i];
 
-    // 🔄 New: round-robin pick (wraps back when i > count)
+    // New: round-robin pick (wraps back when i > count)
     const indexedKey = availableKeys[i % count];
     const node = nodeMap[indexedKey];
     const nodeId = nodeIdMap[indexedKey];
 
     if (!node || !nodeId) {
       console.warn(`Missing node/nodeId for "${indexedKey}". Skipping user ${userId}.`);
-      continue; // 🔄 Changed from "break" to "continue"
+      continue; // Changed from "break" to "continue"
     }
 
     // Assign VM instance to user
