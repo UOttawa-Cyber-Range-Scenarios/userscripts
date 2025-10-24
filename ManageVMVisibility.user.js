@@ -1,12 +1,12 @@
 // ==UserScript==
-// @name        Manage VM access and visibility
+// @name        Manage VM access and visibility2
 // @namespace   uOttawa-IBM Cyber Range script
 // @match       https://citefplus.griseo.ca/scenario-user-management/*
 // @match       https://citefplus.griseo.ca/scenario-vm-access-management/*
 // @match       http://10.20.1.11:8080/scenario-user-management/*
 // @match       http://10.20.1.11:8080/scenario-vm-access-management/*
 // @grant       none
-// @author      Sarra Sassi  
+// @author      Sarra Sassi
 // @version     1.0
 // @description Automatically add student users to scenarios and set permissions on CITEF.
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
@@ -97,58 +97,84 @@ async function handleDropdownSelection(selectedValue, studentIdDict, nodesValue,
     await setStudentsPermission(nodeIdMap, studentIdDict, scenarioId, baseName, nodeMap, selectedValue);
 }
 
+// --- Modified to support round-robin assignment when students > available workstation instances ---
 async function setStudentsPermission(nodeIdMap, studentIdDict, scenarioId, baseName, nodeMap, selectedValue) {
-    const userIds = Object.values(studentIdDict);
-    for (let i = 0; i < userIds.length; i++) {
-        let userId = userIds[i];
-        const indexedValue = (selectedValue === "Automatique" || selectedValue === null) ? `${baseName} [${i + 1}]` : `${baseName}[${i + 1}]`; // e.g., "Win Workstation [1]"
-        const node = nodeMap[indexedValue];
-        const nodeId = nodeIdMap[indexedValue];
-        if (!node || !nodeId) {
-            break;
-        }
-        const assignUsers = await fetch(`/api/scenario_template/assign_user_vm_instances/${scenarioId}`, {
-            headers: {
-                "accept": "application/json",
-                "content-type": "application/json",
-                "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
-            },
-            method: "PUT",
-            body: JSON.stringify({
-                vmInstancesToAssign: [node.vmInstanceName],
-                userIdToAssign: userId,
-            })
-        });
-        const bodyData = JSON.stringify({
-            apiRouteBase: "scenario_view",
-            allowedNodesIds: [nodeId],
-            scenarioEnvironmentId: scenarioId,
-            userId: userId,
-        });
-        const headers = {
-            "accept": "application/json",
-            "content-type": "application/json",
-            "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
-        };
-        let nodeVsibility = await fetch('/api/scenario_view', {
-            headers: headers,
-            method: "POST",
-            body: bodyData
-        });
-        if (nodeVsibility.status === 400) {
-            nodeVsibility = await fetch('/api/scenario_view', {
-                headers: headers,
-                method: "PUT",
-                body: bodyData
-            }); {
-            }
-        }
-        if (assignUsers.ok) {
-            console.log(`User ${userId} assigned successfully to ${indexedValue}`);
-        } else {
-            console.error("Assign or visibility failed:", assignUsers.text);
-        }
+  const userIds = Object.values(studentIdDict);
+
+  // 🔄 New: collect all available workstation keys
+  const keyPattern = new RegExp(`^${baseName}\\s*\\[(\\d+)\\]$`);
+  const availableKeys = Object.keys(nodeMap)
+    .map(k => ({ k, m: k.match(keyPattern) }))
+    .filter(x => x.m)
+    .sort((a, b) => parseInt(a.m[1], 10) - parseInt(b.m[1], 10))
+    .map(x => x.k);
+
+  const count = availableKeys.length;
+  if (count === 0) {
+    console.warn(`No VM instances found for base "${baseName}". Nothing to assign.`);
+    return;
+  }
+
+  for (let i = 0; i < userIds.length; i++) {
+    const userId = userIds[i];
+
+    // 🔄 New: round-robin pick (wraps back when i > count)
+    const indexedKey = availableKeys[i % count];
+    const node = nodeMap[indexedKey];
+    const nodeId = nodeIdMap[indexedKey];
+
+    if (!node || !nodeId) {
+      console.warn(`Missing node/nodeId for "${indexedKey}". Skipping user ${userId}.`);
+      continue; // 🔄 Changed from "break" to "continue"
     }
+
+    // Assign VM instance to user
+    const assignUsers = await fetch(`/api/scenario_template/assign_user_vm_instances/${scenarioId}`, {
+      headers: {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
+      },
+      method: "PUT",
+      body: JSON.stringify({
+        vmInstancesToAssign: [node.vmInstanceName],
+        userIdToAssign: userId,
+      })
+    });
+
+    // Ensure node visibility for the user
+    const bodyData = JSON.stringify({
+      apiRouteBase: "scenario_view",
+      allowedNodesIds: [nodeId],
+      scenarioEnvironmentId: scenarioId,
+      userId: userId,
+    });
+    const headers = {
+      "accept": "application/json",
+      "content-type": "application/json",
+      "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
+    };
+
+    let nodeVsibility = await fetch('/api/scenario_view', {
+      headers,
+      method: "POST",
+      body: bodyData
+    });
+
+    if (nodeVsibility.status === 400) {
+      nodeVsibility = await fetch('/api/scenario_view', {
+        headers,
+        method: "PUT",
+        body: bodyData
+      });
+    }
+
+    if (assignUsers.ok) {
+      console.log(`User ${userId} assigned to ${indexedKey} (round-robin).`);
+    } else {
+      console.error("Assign or visibility failed:", await assignUsers.text?.());
+    }
+  }
 }
 
 async function AddButton() {
@@ -165,7 +191,7 @@ async function AddButton() {
     placeholder.text = "Automatique";
     placeholder.value = "Automatique";
     placeholder.selected = true;
-    dropdown.appendChild(placeholder); 
+    dropdown.appendChild(placeholder);
     const toolbar = document.getElementsByClassName("mat-elevation-z1 mat-toolbar")[0];
     const container = toolbar.childNodes[1];
     container.appendChild(button);
