@@ -7,7 +7,7 @@
 // @match       http://10.20.1.11:8080/scenario-vm-access-management/*
 // @grant       none
 // @author      Sarra Sassi
-// @version     1.0
+// @version     1.1
 // @description Automatically add student users to scenarios and set permissions on CITEF.
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
 // @downloadURL https://raw.githubusercontent.com/UOttawa-Cyber-Range-Scenarios/userscripts/refs/heads/main/ManageVMVisibility.user.js
