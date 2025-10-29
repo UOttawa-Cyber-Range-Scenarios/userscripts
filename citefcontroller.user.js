@@ -8,7 +8,7 @@
 // @author      Julien Cassagne, Sarra Sassi  
 // @description Automate CITEF interface on CR iMacs 
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
-// @downloadURL https://raw.githubusercontent.com/UOttawa-Cyber-Range-Scenarios/userscripts/refs/heads/main/citefcontroller.user.js
+// @downloadURL https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts/raw/refs/heads/main/citefcontroller.user.js
 // ==/UserScript==
 
 var currentInterval = null;

@@ -10,7 +10,7 @@
 // @version     1.1
 // @description Automatically add student users to scenarios and set permissions on CITEF.
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
-// @downloadURL https://raw.githubusercontent.com/UOttawa-Cyber-Range-Scenarios/userscripts/refs/heads/main/ManageVMVisibility.user.js
+// @downloadURL https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts/raw/refs/heads/main/ManageVMVisibility.user.js
 // ==/UserScript==
 
 async function assignUsers(selectedValue, nodesValue) {
