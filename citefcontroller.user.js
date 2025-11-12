@@ -4,9 +4,9 @@
 // @match       https://citefplus.griseo.ca/*
 // @match       http://10.20.1.11:8080/*
 // @grant       none
-// @version     1.10
-// @author      Julien Cassagne, Sarra Sassi  
-// @description Automate CITEF interface on CR iMacs 
+// @version     1.11
+// @author      Julien Cassagne, Sarra Sassi
+// @description Automate CITEF interface on CR iMacs
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
 // @downloadURL https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts/raw/refs/heads/main/citefcontroller.user.js
 // ==/UserScript==
