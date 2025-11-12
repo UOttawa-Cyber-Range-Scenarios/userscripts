@@ -108,6 +108,13 @@ async function handlerScenario() {
 }
 
 async function handlerScenarioVnc() {
+  // Remove the side padding from the fullscreened window
+  try {
+    document.getElementsByClassName('vncConsoleContainer')[0].classList.remove('p-24');
+  } catch (error) {
+    console.error("CITEF padding vncConsoleContainer: ", error);
+  }
+
   // Try to fullscreen
   try {
     const button = document.getElementsByClassName("vnc-console-mat-icon-button")[0];
