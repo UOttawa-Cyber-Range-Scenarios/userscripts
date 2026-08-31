@@ -1,13 +1,11 @@
 // ==UserScript==
 // @name        Manage VM access and visibility
 // @namespace   uOttawa-IBM Cyber Range script
-// @match       https://citef.griseo.ca/scenario-user-management/*
-// @match       https://citef.griseo.ca/scenario-vm-access-management/*
-// @match       http://10.20.1.11:8080/scenario-user-management/*
-// @match       http://10.20.1.11:8080/scenario-vm-access-management/*
+// @match       https://citef.griseo.ca/ui/scenario-user-management/*
+// @match       https://citef.griseo.ca/ui/scenario-vm-access-management/*
 // @grant       none
 // @author      Sarra Sassi, Julien Cassagne
-// @version     1.2
+// @version     1.21
 // @description Automatically add student users to scenarios and set permissions on CITEF.
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
 // @downloadURL https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts/raw/refs/heads/main/ManageVMVisibility.user.js

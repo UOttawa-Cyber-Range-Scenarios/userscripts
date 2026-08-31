@@ -1,10 +1,9 @@
 // ==UserScript==
 // @name        CITEF Controller
 // @namespace   uOttawa-IBM Cyber Range script
-// @match       https://citefplus.griseo.ca/*
-// @match       http://10.20.1.11:8080/*
+// @match       https://citef.griseo.ca/*
 // @grant       none
-// @version     1.11
+// @version     1.12
 // @author      Julien Cassagne, Sarra Sassi
 // @description Automate CITEF interface on CR iMacs
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
