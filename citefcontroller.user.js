@@ -4,7 +4,7 @@
 // @match       https://citef.griseo.ca/*
 // @match       https://auth-citef.griseo.ca/realms/citef_realm/protocol/openid-connect/auth
 // @grant       none
-// @version     1.22
+// @version     1.23
 // @author      Julien Cassagne, Sarra Sassi
 // @description Automate CITEF interface on CR iMacs
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
@@ -13,7 +13,7 @@
 
 var currentInterval = null;
 const routeHandlers = {
-  '/realms/citef_realm/protocol/openid-connect/auth': handlerLogin,
+  '/realms/citef_realm': handlerLogin,
   '/ui/home': handlerRedirectScenario,
   '/': handlerRedirectScenario,
   '/ui/scenario-guacamole': handlerScenarioVnc,
@@ -26,7 +26,7 @@ async function CITEFController() {
   }
   await new Promise(resolve => setTimeout(resolve, 1000)); // wait util js gets executed
 
-  const route = window.location.pathname || undefined;
+  const route = window.location.pathname.split('/').slice(0, 3).join('/') || undefined;
   console.info(`CITEFController: Starting on ${route}`);
 
   const handler = routeHandlers[route];
@@ -102,6 +102,8 @@ async function handlerScenario() {
 }
 
 async function handlerScenarioVnc() {
+  await new Promise(resolve => setTimeout(resolve, 2000)); // wait util connection gets established
+  
   // Remove the side padding from the fullscreened window
   /*try {
     document.getElementsByClassName('vncConsoleContainer')[0].classList.remove('p-24'); // TODO: CHECK COMPAT V5
