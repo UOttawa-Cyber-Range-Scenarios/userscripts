@@ -4,7 +4,7 @@
 // @match       https://citef.griseo.ca/*
 // @match       https://auth-citef.griseo.ca/realms/citef_realm/protocol/openid-connect/auth
 // @grant       none
-// @version     1.20
+// @version     1.21
 // @author      Julien Cassagne, Sarra Sassi
 // @description Automate CITEF interface on CR iMacs
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
@@ -16,7 +16,7 @@ const routeHandlers = {
   '/realms/citef_realm/protocol/openid-connect/auth': handlerLogin,
   '/ui/home': handlerRedirectScenario,
   '/': handlerRedirectScenario,
-  '/ui/scenario-vnc': handlerScenarioVnc,
+  '/ui/scenario-guacamole': handlerScenarioVnc,
   '/ui/scenario': handlerScenario,
 };
 
@@ -94,7 +94,7 @@ async function handlerScenario() {
       console.warn("CITEFController-handlerScenario: No node instance ID found");
       return;
     }
-    window.location.href = `/ui/scenario-vnc/${scenarioId}/${nodeInstanceId}`;
+    window.location.href = `/ui/scenario-guacamole/${scenarioId}/${nodeInstanceId}/VNC`;
   }
   currentInterval = setInterval(checkScenario, 30000);
   await checkScenario();
@@ -102,15 +102,15 @@ async function handlerScenario() {
 
 async function handlerScenarioVnc() {
   // Remove the side padding from the fullscreened window
-  try {
+  /*try {
     document.getElementsByClassName('vncConsoleContainer')[0].classList.remove('p-24'); // TODO: CHECK COMPAT V5
   } catch (error) {
     console.error("CITEF padding vncConsoleContainer: ", error);
-  }
+  }*/
 
   // Try to fullscreen
   try {
-    const button = document.getElementsByClassName("vnc-console-mat-icon-button")[0]; // TODO: CHECK COMPAT V5
+    const button = document.getElementsByClassName("guacamole-mat-icon-button")[0]; // TODO: CHECK COMPAT V5
     if (button)
       button.click();
   }
