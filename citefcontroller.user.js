@@ -4,7 +4,7 @@
 // @match       https://citef.griseo.ca/*
 // @match       https://auth-citef.griseo.ca/realms/citef_realm/protocol/openid-connect/auth
 // @grant       none
-// @version     1.21
+// @version     1.22
 // @author      Julien Cassagne, Sarra Sassi
 // @description Automate CITEF interface on CR iMacs
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
@@ -44,6 +44,7 @@ async function handlerLogin() {
     const username = form.querySelector('input[name="username"]');
     const password = form.querySelector('input[type="password"]');
     const submitButton = form.querySelector('[name="login"], button[type="submit"], input[type="submit"]');
+    submitButton.removeAttribute('disabled');
 
     if (username.value == "" || password.value == "") {
       console.warn("CITEFController-handlerLogin: Missing username / password");
