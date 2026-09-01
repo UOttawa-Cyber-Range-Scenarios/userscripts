@@ -2,8 +2,9 @@
 // @name        CITEF Controller
 // @namespace   uOttawa-IBM Cyber Range script
 // @match       https://citef.griseo.ca/*
+// @match       https://auth-citef.griseo.ca/realms/citef_realm/protocol/openid-connect/auth
 // @grant       none
-// @version     1.12
+// @version     1.20
 // @author      Julien Cassagne, Sarra Sassi
 // @description Automate CITEF interface on CR iMacs
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
@@ -12,11 +13,11 @@
 
 var currentInterval = null;
 const routeHandlers = {
-  'login': handlerLogin,
-  'password-reset': handlerRedirectScenario,
-  'home': handlerRedirectScenario,
-  'scenario-vnc': handlerScenarioVnc,
-  'scenario': handlerScenario,
+  '/realms/citef_realm/protocol/openid-connect/auth': handlerLogin,
+  '/ui/home': handlerRedirectScenario,
+  '/': handlerRedirectScenario,
+  '/ui/scenario-vnc': handlerScenarioVnc,
+  '/ui/scenario': handlerScenario,
 };
 
 async function CITEFController() {
@@ -25,7 +26,7 @@ async function CITEFController() {
   }
   await new Promise(resolve => setTimeout(resolve, 1000)); // wait util js gets executed
 
-  const route = window.location.pathname.split('/')[1] || undefined;
+  const route = window.location.pathname || undefined;
   console.info(`CITEFController: Starting on ${route}`);
 
   const handler = routeHandlers[route];
@@ -39,9 +40,10 @@ async function CITEFController() {
 async function handlerLogin() {
   const checkLogin = async () => {
     await new Promise(resolve => setTimeout(resolve, 2000));
-    const username = document.getElementsByClassName("mat-input-element")[0];
-    const password = document.getElementsByClassName("mat-input-element")[1];
-    const submitButton = document.getElementsByClassName("submit-button")[0];
+    const form = document.querySelector('form[action*="login-actions/authenticate"]');
+    const username = form.querySelector('input[name="username"]');
+    const password = form.querySelector('input[type="password"]');
+    const submitButton = form.querySelector('[name="login"], button[type="submit"], input[type="submit"]');
 
     if (username.value == "" || password.value == "") {
       console.warn("CITEFController-handlerLogin: Missing username / password");
@@ -49,27 +51,19 @@ async function handlerLogin() {
     }
     submitButton.click();
   }
-  document.getElementsByClassName("mat-input-element")[1].addEventListener('change', checkLogin);
+  document.querySelector('form[action*="login-actions/authenticate"]').querySelector('input[type="password"]').addEventListener('change', checkLogin);
   currentInterval = setInterval(checkLogin, 30000);
   await checkLogin();
 }
 
 async function handlerRedirectScenario() {
-  location.href = '/scenario';
+  location.href = '/ui/scenario';
 }
 
 async function handlerScenario() {
   const checkScenario = async () => {
     // List accessible scenarios
-    const created = await fetch("/api/scenario/page/0/2003/DESC/created", {
-      headers: {
-        "accept": "application/json",
-        "content-type": "application/json",
-        "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
-      },
-      body: "{\"filter\":\"\"}",
-      method: "POST",
-    });
+    const created = await fetch("/api/scenario/search?page=0&size=100&caseSensitive=false&sortField=created&sortDirection=DESC");
     const createdJson = await created.json();
     const scenarioData = createdJson.content.filter(item => item.status === "INSTANTIATION");
     if (!scenarioData) { // no scenario instantiated
@@ -100,7 +94,7 @@ async function handlerScenario() {
       console.warn("CITEFController-handlerScenario: No node instance ID found");
       return;
     }
-    window.location.href = `/scenario-vnc/${scenarioId}/${nodeInstanceId}`;
+    window.location.href = `/ui/scenario-vnc/${scenarioId}/${nodeInstanceId}`;
   }
   currentInterval = setInterval(checkScenario, 30000);
   await checkScenario();
@@ -109,14 +103,14 @@ async function handlerScenario() {
 async function handlerScenarioVnc() {
   // Remove the side padding from the fullscreened window
   try {
-    document.getElementsByClassName('vncConsoleContainer')[0].classList.remove('p-24');
+    document.getElementsByClassName('vncConsoleContainer')[0].classList.remove('p-24'); // TODO: CHECK COMPAT V5
   } catch (error) {
     console.error("CITEF padding vncConsoleContainer: ", error);
   }
 
   // Try to fullscreen
   try {
-    const button = document.getElementsByClassName("vnc-console-mat-icon-button")[0];
+    const button = document.getElementsByClassName("vnc-console-mat-icon-button")[0]; // TODO: CHECK COMPAT V5
     if (button)
       button.click();
   }
@@ -124,18 +118,18 @@ async function handlerScenarioVnc() {
     console.error("CITEFController-handlerScenarioVnc: ", error);
   }
 
-  const scenarioId = window.location.pathname.split('/')[2] || undefined;
+  const scenarioId = window.location.pathname.split('/')[3] || undefined;
   currentInterval = setInterval(async () => {
     const exerciseRunning = await isExerciseRunning(scenarioId);
     const scenarioInstantiated = await isScenarioInstantiated(scenarioId);
     if (!scenarioInstantiated || !exerciseRunning) {
-      location.href = '/scenario';
-      return; // If scenario stopped, return to /scenario
+      location.href = '/ui/scenario';
+      return; // If scenario stopped, return to /ui/scenario
     }
 
     const statusText = document.getElementsByClassName("font-size-16");
-    if (statusText.length > 0 && document.getElementsByClassName("mat-button-wrapper")[0].innerText === "Reconnect") {
-      const connectbutton = document.getElementsByClassName("mat-button-wrapper")[0].parentNode;
+    if (statusText.length > 0 && document.getElementsByClassName("mdc-button__label")[0].innerText === "Reconnect") {
+      const connectbutton = document.getElementsByClassName("mdc-button__label")[0].parentNode;
       if (connectbutton) { // If Reconnect button exist, click on it
         connectbutton.click();
       }
@@ -155,10 +149,8 @@ async function isScenarioInstantiated(scenarioId) {
   const scenarioStatusResponse = await fetch("/api/scenario/instantiation_statuses", {
     headers: {
       "accept": "application/json",
-      "content-type": "application/json",
-      "x-xsrf-token": /XSRF-TOKEN=([^;]+)/.exec(document.cookie)[1]
+      "content-type": "application/json"
     },
-
     body: JSON.stringify([scenarioId]),
     method: "POST",
   });
