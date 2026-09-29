@@ -4,7 +4,7 @@
 // @match       https://citef.griseo.ca/*
 // @match       https://auth-citef.griseo.ca/realms/citef_realm/protocol/openid-connect/auth
 // @grant       none
-// @version     1.23
+// @version     1.24
 // @author      Julien Cassagne, Sarra Sassi
 // @description Automate CITEF interface on CR iMacs
 // @homepage https://github.com/UOttawa-Cyber-Range-Scenarios/userscripts
@@ -104,13 +104,6 @@ async function handlerScenario() {
 async function handlerScenarioVnc() {
   await new Promise(resolve => setTimeout(resolve, 2000)); // wait util connection gets established
   
-  // Remove the side padding from the fullscreened window
-  /*try {
-    document.getElementsByClassName('vncConsoleContainer')[0].classList.remove('p-24'); // TODO: CHECK COMPAT V5
-  } catch (error) {
-    console.error("CITEF padding vncConsoleContainer: ", error);
-  }*/
-
   // Try to fullscreen
   try {
     const button = document.getElementsByClassName("guacamole-mat-icon-button")[0]; // TODO: CHECK COMPAT V5
@@ -120,6 +113,20 @@ async function handlerScenarioVnc() {
   catch (error) {
     console.error("CITEFController-handlerScenarioVnc: ", error);
   }
+
+  // CITEF: rescale the Guacamole display after full-screen changes and VM resolution changes
+  (() => {
+    const nudge = () => setTimeout(() => window.dispatchEvent(new Event('resize')), 300);
+    document.addEventListener('fullscreenchange', nudge);
+    document.addEventListener('webkitfullscreenchange', nudge);
+    let lastSize = '';
+    setInterval(() => {
+      const c = document.querySelector('.guacamoleContainer canvas');
+      const size = c ? c.width + 'x' + c.height : '';
+      if (size && size !== lastSize) { lastSize = size; nudge(); }
+    }, 1000);
+  })();
+  
 
   const scenarioId = window.location.pathname.split('/')[3] || undefined;
   currentInterval = setInterval(async () => {
